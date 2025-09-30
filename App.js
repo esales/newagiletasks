@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -301,6 +302,19 @@ export default function App() {
 
   const getCompletedTasks = () => {
     const today = new Date().toLocaleDateString('pt-BR');
+
+    // //test
+    // const testCompletedTasks = [
+    //   {
+    //     id: '1',
+    //     text: 'Tarefa 1',
+    //     date: '2025-01-01',
+    //     completed: true,
+    //   },
+    // ];
+    // return testCompletedTasks.filter(task => task.completed && task.date !== today);
+    // //end test
+
     return tasks.filter(task => task.completed && task.date !== today);
   };
 
@@ -353,9 +367,12 @@ export default function App() {
       
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <Text>Logo</Text>
-        </View>
+        <Image 
+          source={require('./assets/logo.png')} 
+          style={styles.logoImage} 
+          resizeMode="contain"
+        />
+
         <Text style={styles.title}>Agile Tasks!</Text>
       </View>
 
@@ -401,19 +418,13 @@ export default function App() {
                       {getPriorityLabel(task.priority || 'medium')}
                     </Text>
                   </View>
-                  {task.completed && (
-                    <View style={styles.completedBadge}>
-                      <Ionicons name="checkmark" size={12} color="#fff" />
-                      <Text style={styles.completedBadgeText}>Concluída</Text>
-                    </View>
-                  )}
                 </View>
               </View>
               <Text style={[styles.taskDate, task.completed && styles.completedTaskDate]}>
                 {task.date}
               </Text>
             </View>
-            <View style={styles.taskActions}>
+            {activeTab === 'current' ?(<View style={styles.taskActions}>
               <TouchableOpacity
                 style={[styles.actionButton, task.completed && styles.disabledActionButton]}
                 onPress={() => editTask(task.id)}
@@ -428,8 +439,12 @@ export default function App() {
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => deleteTask(task.id)}
+                disabled={task.completed}
               >
-                <Ionicons name="trash" size={20} color="#8B5CF6" />
+                <Ionicons 
+                  name="trash" 
+                  size={20} 
+                  color={task.completed ? "#ccc" : "#8B5CF6"}  />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionButton}
@@ -441,7 +456,7 @@ export default function App() {
                   color={task.completed ? "#10B981" : "#8B5CF6"}
                 />
               </TouchableOpacity>
-            </View>
+            </View>) : null}
           </View>
         ))}
       </ScrollView>
@@ -726,9 +741,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     // alignItems: 'center',
   },
-  logoContainer: {
+  logoImage: {
+    width: 32,
+    height: 32,
     marginRight: 12,
-  },
+  },  
   logoSquare: {
     width: 24,
     height: 24,
