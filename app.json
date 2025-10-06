@@ -26,6 +26,10 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "sdkVersion": "54.0.0"
+    "sdkVersion": "54.0.0",
+    "extra": {
+      "EXPO_PUBLIC_SUPABASE_URL": "https://qsyvvkjjlpomttwnjuij.supabase.co",
+      "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_xAjYdR4Pl19Cy6R-43dIkA_yXV0ElHN"
+    }
   }
 }

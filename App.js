@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from './utils/supabase';
 import {
   StyleSheet,
   Text,
@@ -35,8 +36,26 @@ export default function App() {
 
   // Load tasks from storage on app start
   useEffect(() => {
-    loadTasks();
-    loadAdData();
+    const getTasks = async () => {
+      try {
+        console.log('getTasks');
+        const {data: tasks, error} = await supabase.from('tasks').select();
+
+        console.log('tasks', tasks);
+        if (error) {
+          console.error('Error fetching tasks:', error);
+          return;
+        }
+
+        if (tasks && tasks.length > 0) {
+          setTasks(tasks);
+        }
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      }
+    };
+
+    getTasks();
   }, []);
 
   const loadAdData = async () => {
@@ -99,17 +118,6 @@ export default function App() {
         },
       ]
     );
-  };
-
-  const loadTasks = async () => {
-    try {
-      const storedTasks = await AsyncStorage.getItem('tasks');
-      if (storedTasks) {
-        setTasks(JSON.parse(storedTasks));
-      }
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-    }
   };
 
   const saveTasks = async (newTasks) => {
@@ -296,7 +304,7 @@ export default function App() {
   };
 
   const getCurrentTasks = () => {
-    const today = new Date().toLocaleDateString('pt-BR');
+    const today = new Date().toISOString().split('T')[0]
     return tasks.filter(task => task.date === today);
   };
 
