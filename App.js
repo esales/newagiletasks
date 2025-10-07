@@ -34,27 +34,25 @@ export default function App() {
   const [dailyAdCount, setDailyAdCount] = useState(0);
   const [lastAdDate, setLastAdDate] = useState('');
 
+  const getTasks = async () => {
+    try {
+      const {data: tasks, error} = await supabase.from('tasks').select();
+
+      if (error) {
+        console.error('Error fetching tasks:', error);
+        return;
+      }
+
+      if (tasks && tasks.length > 0) {
+        setTasks(tasks);
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    }
+  };
+
   // Load tasks from storage on app start
   useEffect(() => {
-    const getTasks = async () => {
-      try {
-        console.log('getTasks');
-        const {data: tasks, error} = await supabase.from('tasks').select();
-
-        console.log('tasks', tasks);
-        if (error) {
-          console.error('Error fetching tasks:', error);
-          return;
-        }
-
-        if (tasks && tasks.length > 0) {
-          setTasks(tasks);
-        }
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
-      }
-    };
-
     getTasks();
   }, []);
 
@@ -120,12 +118,10 @@ export default function App() {
     );
   };
 
-  const saveTasks = async (newTasks) => {
-    try {
-      await AsyncStorage.setItem('tasks', JSON.stringify(newTasks));
-    } catch (error) {
-      console.error('Error saving tasks:', error);
-    }
+  const saveTask = async (task) => {
+
+    const { error } =  await supabase.from('tasks').update(task);
+    await getTasks();
   };
 
   const validateDate = (dateString) => {
@@ -195,18 +191,23 @@ export default function App() {
       date: formatDate(newTaskDate),
       priority: newTaskPriority,
       completed: false,
+      completedDate: null
     };
 
-    const updatedTasks = [...tasks, newTask];
-    setTasks(updatedTasks);
-    saveTasks(updatedTasks);
-    setNewTaskText('');
-    setNewTaskDate('');
-    setNewTaskPriority('medium');
-    setShowAddTask(false);
-    
-    // Increment action count for ad display
-    await incrementActionCount();
+    const { error } =  await supabase.from('tasks').insert(newTask);
+
+    if (error) Alert.alert('Erro', error.message)
+    else {
+      setShowAddTask(false);
+      setNewTaskText('');
+      setNewTaskDate('');
+      setNewTaskPriority('medium');
+
+      await getTasks();
+
+      // Increment action count for ad display
+      await incrementActionCount();
+    }
   };
 
   const toggleTask = async (taskId) => {
@@ -230,12 +231,16 @@ export default function App() {
           text: 'Excluir',
           style: 'destructive',
           onPress: async () => {
-            const updatedTasks = tasks.filter(task => task.id !== taskId);
-            setTasks(updatedTasks);
-            saveTasks(updatedTasks);
+            const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+
+            console.log('taskId',taskId)
+            if (error) Alert.alert('Erro', error.message)
+            else {
+              getTasks();
             
-            // Increment action count for ad display
-            await incrementActionCount();
+              // Increment action count for ad display
+              await incrementActionCount();
+            }
           },
         },
       ]
@@ -304,24 +309,16 @@ export default function App() {
   };
 
   const getCurrentTasks = () => {
+    // const today = new Date().toISOString().split('T')[0]
+    // return tasks.filter(task => task.date === today);
     const today = new Date().toISOString().split('T')[0]
-    return tasks.filter(task => task.date === today);
+
+    return tasks.filter(task => task.completed == false || (task.completed == true && task.date == today))
   };
 
   const getCompletedTasks = () => {
-    const today = new Date().toLocaleDateString('pt-BR');
-
-    // //test
-    // const testCompletedTasks = [
-    //   {
-    //     id: '1',
-    //     text: 'Tarefa 1',
-    //     date: '2025-01-01',
-    //     completed: true,
-    //   },
-    // ];
-    // return testCompletedTasks.filter(task => task.completed && task.date !== today);
-    // //end test
+    // const today = new Date().toLocaleDateString('pt-BR');
+    const today = new Date().toISOString().split('T')[0]
 
     return tasks.filter(task => task.completed && task.date !== today);
   };
