@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { get } from 'lodash';
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
@@ -139,10 +140,10 @@ export default function App() {
     
     // Check if date is valid
     const date = new Date(year, month - 1, day);
+
     return date.getDate() === day && 
            date.getMonth() === month - 1 && 
-           date.getFullYear() === year &&
-           date <= new Date(); // Date should not be in the future
+           date.getFullYear() === year 
   };
 
   const formatDate = (dateString) => {
@@ -157,22 +158,48 @@ export default function App() {
     const month = match[2].padStart(2, '0');
     const year = match[3];
     
-    return `${day}/${month}/${year}`;
+    return `${month}/${day}/${year}`;
   };
 
   const handleDateSelect = (day) => {
     const selectedDate = new Date(day.dateString);
-    const formattedDate = selectedDate.toLocaleDateString('pt-BR');
+    const formattedDate = formatDateDisplay(selectedDate)
     setNewTaskDate(formattedDate);
     setShowCalendar(false);
   };
 
   const handleEditDateSelect = (day) => {
     const selectedDate = new Date(day.dateString);
-    const formattedDate = selectedDate.toLocaleDateString('pt-BR');
+    const formattedDate = formatDateDisplay(selectedDate)
+
     setEditTaskDate(formattedDate);
+    
+    const task = {
+      ...editingTask,
+      date: selectedDate.toISOString().split('T')[0]
+    }
+
+    setEditingTask(task)
     setShowEditCalendar(false);
   };
+
+  // utils/formatDateDisplay.js
+  const formatDateDisplay = (input) => {
+    let day, month, year;
+
+    if (input instanceof Date) {
+      // input é Date
+      [year, month, day] = input.toISOString().split('T')[0].split('-');
+    } else if (typeof input === 'string') {
+      // input é string "YYYY-MM-DD"
+      [year, month, day] = input.split('-');
+    } else {
+      throw new Error('Input must be a Date or string in YYYY-MM-DD format');
+    }
+
+    return `${day}/${month}/${year}`;
+  };
+
 
   const addTask = async () => {
     if (newTaskText.trim() === '') {
@@ -211,14 +238,27 @@ export default function App() {
   };
 
   const toggleTask = async (taskId) => {
-    const updatedTasks = tasks.map(task =>
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    );
-    setTasks(updatedTasks);
-    saveTasks(updatedTasks);
+
+    const task = tasks.find(t => t.id === taskId);
+
+    if (!task){
+      Alert.alert('Erro', 'Erro ao editar tarefa.');
+    }
+
+    let completedDate = null;
+
+    if (!task.completedDate)
+      completedDate = new Date().toISOString().split('T')[0];
+
+    const { error } = await supabase.from('tasks').update({completedDate: completedDate}).eq('id', taskId);
     
-    // Increment action count for ad display
-    await incrementActionCount();
+    if (error) Alert.alert('Erro', error.message)
+      else {
+        getTasks();
+      
+        // Increment action count for ad display
+        await incrementActionCount();
+      }
   };
 
   const deleteTask = (taskId) => {
@@ -233,7 +273,6 @@ export default function App() {
           onPress: async () => {
             const { error } = await supabase.from('tasks').delete().eq('id', taskId);
 
-            console.log('taskId',taskId)
             if (error) Alert.alert('Erro', error.message)
             else {
               getTasks();
@@ -252,7 +291,7 @@ export default function App() {
     if (task) {
       setEditingTask(task);
       setEditTaskText(task.text);
-      setEditTaskDate(task.date);
+      setEditTaskDate(formatDateDisplay(task.date));
       setEditTaskPriority(task.priority || 'medium');
       setShowEditTask(true);
     }
@@ -260,6 +299,7 @@ export default function App() {
 
   const saveEditTask = async () => {
     if (editTaskText.trim() === '') {
+
       Alert.alert('Erro', 'Por favor, digite uma descrição para a tarefa');
       return;
     }
@@ -269,25 +309,27 @@ export default function App() {
       return;
     }
 
-    const updatedTasks = tasks.map(t =>
-      t.id === editingTask.id 
-        ? { 
-            ...t, 
-            text: editTaskText.trim(),
-            date: formatDate(editTaskDate),
-            priority: editTaskPriority
-          } 
-        : t
-    );
-    setTasks(updatedTasks);
-    saveTasks(updatedTasks);
-    setShowEditTask(false);
-    setEditingTask(null);
-    setEditTaskText('');
-    setEditTaskDate('');
-    
-    // Increment action count for ad display
-    await incrementActionCount();
+    const updatedTask = {
+      ...editingTask,
+      text: editTaskText.trim(),
+      // date: normalizeSupabaseDate(editTaskDate),
+      priority: editTaskPriority
+    };
+
+    const { error } = await supabase.from('tasks').update(updatedTask).eq('id', updatedTask.id);
+
+    if (error) Alert.alert('Erro', error.message)
+    else {
+      getTasks();
+      setShowEditTask(false);
+      setEditingTask(null);
+      setEditTaskText('');
+      setEditTaskDate('');
+      setEditTaskPriority('medium');
+
+      // Increment action count for ad display
+      await incrementActionCount();
+    }
   };
 
   const cancelEditTask = () => {
@@ -299,29 +341,38 @@ export default function App() {
   };
 
   const getTodayTasks = () => {
-    const today = new Date().toLocaleDateString('pt-BR');
-    return tasks.filter(task => task.date === today);
+    const today = new Date().toISOString().split('T')[0];
+    return tasks.filter(task => !task.completedDate || (task.completedDate && normalizeSupabaseDate(task.completedDate) == today));
   };
 
   const getCompletedToday = () => {
-    const todayTasks = getTodayTasks();
-    return todayTasks.filter(task => task.completed).length;
+    const today = new Date().toISOString().split('T')[0];
+    return tasks.filter(task => task.completedDate === today);
   };
 
   const getCurrentTasks = () => {
-    // const today = new Date().toISOString().split('T')[0]
-    // return tasks.filter(task => task.date === today);
     const today = new Date().toISOString().split('T')[0]
 
-    return tasks.filter(task => task.completed == false || (task.completed == true && task.date == today))
+    return tasks.filter(task => !task.completedDate || (task.completedDate && normalizeSupabaseDate(task.completedDate) == today))
   };
 
   const getCompletedTasks = () => {
-    // const today = new Date().toLocaleDateString('pt-BR');
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toISOString().split('T')[0];
 
-    return tasks.filter(task => task.completed && task.date !== today);
+    return tasks.filter(task => task.completedDate && normalizeSupabaseDate(task.completedDate) !== today);
   };
+
+  function normalizeSupabaseDate(dateStr) {
+    // Supabase: "YYYY-DD-MM", ex: "2025-07-10"
+    let year, month, day;
+    if (dateStr.includes('-')){
+      [year, month, day] = dateStr.split('-')
+    } else if (dateStr.includes('/')){
+      [year, month, day]  = dateStr.split('/')
+    } else return null;
+
+    return `${year}-${month}-${day}`; // "YYYY-MM-DD"
+  }
 
   const getTasksByTab = () => {
     if (activeTab === 'current') {
@@ -384,7 +435,7 @@ export default function App() {
       {/* Today's Summary */}
       <View style={styles.summaryContainer}>
         <Text style={styles.summaryText}>
-          Finalizadas hoje: <Text style={styles.summaryNumbers}>{completedToday} / {todayTasks.length}</Text>
+          Finalizadas hoje: <Text style={styles.summaryNumbers}>{completedToday.length} / {todayTasks.length}</Text>
         </Text>
       </View>
 
@@ -411,10 +462,10 @@ export default function App() {
       {/* Task List */}
       <ScrollView style={styles.taskList} showsVerticalScrollIndicator={false}>
         {getTasksByTab().map((task) => (
-          <View key={task.id} style={[styles.taskItem, task.completed && styles.completedTaskItem]}>
+          <View key={task.id} style={[styles.taskItem, task.completedDate && styles.completedTaskItem]}>
             <View style={styles.taskContent}>
               <View style={styles.taskHeader}>
-                <Text style={[styles.taskText, task.completed && styles.completedTask]}>
+                <Text style={[styles.taskText, task.completedDate && styles.completedTask]}>
                   {task.text}
                 </Text>
                 <View style={styles.taskBadges}>
@@ -425,40 +476,40 @@ export default function App() {
                   </View>
                 </View>
               </View>
-              <Text style={[styles.taskDate, task.completed && styles.completedTaskDate]}>
-                {task.date}
+              <Text style={[styles.taskDate, task.completedDate && styles.completedTaskDate]}>
+                Prazo: {formatDateDisplay(task.date)} {activeTab === 'completed' && task.completedDate ? `(Conclusão: ${formatDateDisplay(task.completedDate)})` : ''}
               </Text>
             </View>
             {activeTab === 'current' ?(<View style={styles.taskActions}>
               <TouchableOpacity
                 style={[styles.actionButton, task.completed && styles.disabledActionButton]}
                 onPress={() => editTask(task.id)}
-                disabled={task.completed}
+                disabled={!!task.completedDate}
               >
                 <Ionicons 
                   name="pencil" 
                   size={20} 
-                  color={task.completed ? "#ccc" : "#8B5CF6"} 
+                  color={task.completedDate ? "#ccc" : "#8B5CF6"} 
                 />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => deleteTask(task.id)}
-                disabled={task.completed}
+                disabled={!!task.completedDate}
               >
                 <Ionicons 
                   name="trash" 
                   size={20} 
-                  color={task.completed ? "#ccc" : "#8B5CF6"}  />
+                  color={task.completedDate ? "#ccc" : "#8B5CF6"}  />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => toggleTask(task.id)}
               >
                 <Ionicons
-                  name={task.completed ? "checkmark-circle" : "ellipse-outline"}
+                  name={task.completedDate ? "checkmark-circle" : "ellipse-outline"}
                   size={20}
-                  color={task.completed ? "#10B981" : "#8B5CF6"}
+                  color={task.completedDate ? "#10B981" : "#8B5CF6"}
                 />
               </TouchableOpacity>
             </View>) : null}
@@ -665,7 +716,7 @@ export default function App() {
                 textMonthFontSize: 16,
                 textDayHeaderFontSize: 13
               }}
-              maxDate={new Date().toISOString().split('T')[0]}
+              // maxDate={new Date().toISOString().split('T')[0]}
               enableSwipeMonths={true}
             />
           </View>
@@ -709,7 +760,7 @@ export default function App() {
                 textMonthFontSize: 16,
                 textDayHeaderFontSize: 13
               }}
-              maxDate={new Date().toISOString().split('T')[0]}
+              // maxDate={new Date().toISOString().split('T')[0]}
               enableSwipeMonths={true}
             />
           </View>
