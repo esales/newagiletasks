@@ -14,5 +14,13 @@ export const supabase = createClient(
       detectSessionInUrl: false,
       lock: processLock,
     },
-  })
+  });
+
+  export const signInAnon = async () => {
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error) console.error('Erro ao fazer login anonimo:', error)
+    else console.log('Login anonimo bem-sucedido:', data.user);
+
+    return data.user;
+  }
         

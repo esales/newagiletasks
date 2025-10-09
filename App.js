@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from './utils/supabase';
+import { supabase, signInAnon } from './utils/supabase';
 import {
   StyleSheet,
   Text,
@@ -34,6 +34,21 @@ export default function App() {
   const [actionCount, setActionCount] = useState(0);
   const [dailyAdCount, setDailyAdCount] = useState(0);
   const [lastAdDate, setLastAdDate] = useState('');
+
+  
+  useEffect(() => {
+    const initUser = async () => {
+      const session = await supabase.auth.getSession()
+      
+      if (!session.data.session) {
+        const user = await signInAnon()
+        await AsyncStorage.setItem('user_id', user.id)
+        console.log('Usuário anonimo criado e ID salvo:', user.id);
+      }
+    }
+    initUser()
+    
+  }, []);
 
   const getTasks = async () => {
     try {
@@ -212,13 +227,16 @@ export default function App() {
       return;
     }
 
+    const user_id = await AsyncStorage.getItem('user_id');
+
     const newTask = {
       id: Date.now().toString(),
       text: newTaskText.trim(),
       date: formatDate(newTaskDate),
       priority: newTaskPriority,
       completed: false,
-      completedDate: null
+      completedDate: null,
+      user_id: user_id
     };
 
     const { error } =  await supabase.from('tasks').insert(newTask);
