@@ -9,13 +9,14 @@ import {
   TextInput,
   Alert,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { get } from 'lodash';
+import { get, set } from 'lodash';
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
@@ -35,9 +36,9 @@ export default function App() {
   const [dailyAdCount, setDailyAdCount] = useState(0);
   const [lastAdDate, setLastAdDate] = useState('');
 
-  
+
   useEffect(() => {
-    const initUser = async () => {
+  const initUser = async () => {
       const session = await supabase.auth.getSession()
       
       if (!session.data.session) {
@@ -49,6 +50,7 @@ export default function App() {
     initUser()
     
   }, []);
+
 
   const getTasks = async () => {
     try {
@@ -72,67 +74,78 @@ export default function App() {
     getTasks();
   }, []);
 
-  const loadAdData = async () => {
-    try {
-      const storedActionCount = await AsyncStorage.getItem('actionCount');
-      const storedDailyAdCount = await AsyncStorage.getItem('dailyAdCount');
-      const storedLastAdDate = await AsyncStorage.getItem('lastAdDate');
+  // useEffect(() => {
+  // const init = async () => {
+  //   initUser().then(() => {
+  //     console.log('Usuário inicializado:', user.id);
+  //     getTasks();
+  //   });
+  // };
+
+//   init();
+// }, []);
+
+  // const loadAdData = async () => {
+  //   try {
+  //     const storedActionCount = await AsyncStorage.getItem('actionCount');
+  //     const storedDailyAdCount = await AsyncStorage.getItem('dailyAdCount');
+  //     const storedLastAdDate = await AsyncStorage.getItem('lastAdDate');
       
-      if (storedActionCount) setActionCount(parseInt(storedActionCount));
-      if (storedDailyAdCount) setDailyAdCount(parseInt(storedDailyAdCount));
-      if (storedLastAdDate) setLastAdDate(storedLastAdDate);
-    } catch (error) {
-      console.error('Error loading ad data:', error);
-    }
-  };
+  //     if (storedActionCount) setActionCount(parseInt(storedActionCount));
+  //     if (storedDailyAdCount) setDailyAdCount(parseInt(storedDailyAdCount));
+  //     if (storedLastAdDate) setLastAdDate(storedLastAdDate);
+  //   } catch (error) {
+  //     console.error('Error loading ad data:', error);
+  //   }
+  // };
 
-  const saveAdData = async (newActionCount, newDailyAdCount, newLastAdDate) => {
-    try {
-      await AsyncStorage.setItem('actionCount', newActionCount.toString());
-      await AsyncStorage.setItem('dailyAdCount', newDailyAdCount.toString());
-      await AsyncStorage.setItem('lastAdDate', newLastAdDate);
-    } catch (error) {
-      console.error('Error saving ad data:', error);
-    }
-  };
+  // const saveAdData = async (newActionCount, newDailyAdCount, newLastAdDate) => {
+  //   try {
+  //     await AsyncStorage.setItem('actionCount', newActionCount.toString());
+  //     await AsyncStorage.setItem('dailyAdCount', newDailyAdCount.toString());
+  //     await AsyncStorage.setItem('lastAdDate', newLastAdDate);
+  //   } catch (error) {
+  //     console.error('Error saving ad data:', error);
+  //   }
+  // };
 
-  const incrementActionCount = async () => {
-    const today = new Date().toLocaleDateString('pt-BR');
-    let newActionCount = actionCount + 1;
-    let newDailyAdCount = dailyAdCount;
-    let newLastAdDate = lastAdDate;
+  // const incrementActionCount = async () => {
+  //   const today = new Date().toLocaleDateString('pt-BR');
+  //   let newActionCount = actionCount + 1;
+  //   let newDailyAdCount = dailyAdCount;
+  //   let newLastAdDate = lastAdDate;
 
-    // Reset daily ad count if it's a new day
-    if (lastAdDate !== today) {
-      newDailyAdCount = 0;
-      newLastAdDate = today;
-    }
+  //   // Reset daily ad count if it's a new day
+  //   if (lastAdDate !== today) {
+  //     newDailyAdCount = 0;
+  //     newLastAdDate = today;
+  //   }
 
-    // Check if we should show an ad (every 20 actions and max 3 per day)
-    if (newActionCount % 20 === 0 && newDailyAdCount < 3) {
-      showInterstitialAd();
-      newDailyAdCount += 1;
-    }
+  //   // Check if we should show an ad (every 20 actions and max 3 per day)
+  //   if (newActionCount % 20 === 0 && newDailyAdCount < 3) {
+  //     showInterstitialAd();
+  //     newDailyAdCount += 1;
+  //   }
 
-    setActionCount(newActionCount);
-    setDailyAdCount(newDailyAdCount);
-    setLastAdDate(newLastAdDate);
-    await saveAdData(newActionCount, newDailyAdCount, newLastAdDate);
-  };
+  //   setActionCount(newActionCount);
+  //   setDailyAdCount(newDailyAdCount);
+  //   setLastAdDate(newLastAdDate);
+  //   await saveAdData(newActionCount, newDailyAdCount, newLastAdDate);
+  // };
 
-  const showInterstitialAd = () => {
-    // Simple ad simulation - in a real app, this would show an actual ad
-    Alert.alert(
-      '📱 Anúncio',
-      'Este é um espaço para anúncio intersticial.\n\nEm uma versão de produção, aqui seria exibido um anúncio real do AdMob.',
-      [
-        {
-          text: 'Fechar',
-          style: 'default',
-        },
-      ]
-    );
-  };
+  // const showInterstitialAd = () => {
+  //   // Simple ad simulation - in a real app, this would show an actual ad
+  //   Alert.alert(
+  //     '📱 Anúncio',
+  //     'Este é um espaço para anúncio intersticial.\n\nEm uma versão de produção, aqui seria exibido um anúncio real do AdMob.',
+  //     [
+  //       {
+  //         text: 'Fechar',
+  //         style: 'default',
+  //       },
+  //     ]
+  //   );
+  // };
 
   const saveTask = async (task) => {
 
@@ -250,8 +263,8 @@ export default function App() {
 
       await getTasks();
 
-      // Increment action count for ad display
-      await incrementActionCount();
+      // // Increment action count for ad display
+      // await incrementActionCount();
     }
   };
 
@@ -274,8 +287,8 @@ export default function App() {
       else {
         getTasks();
       
-        // Increment action count for ad display
-        await incrementActionCount();
+        // // Increment action count for ad display
+        // await incrementActionCount();
       }
   };
 
@@ -295,8 +308,8 @@ export default function App() {
             else {
               getTasks();
             
-              // Increment action count for ad display
-              await incrementActionCount();
+              // // Increment action count for ad display
+              // await incrementActionCount();
             }
           },
         },
@@ -345,8 +358,8 @@ export default function App() {
       setEditTaskDate('');
       setEditTaskPriority('medium');
 
-      // Increment action count for ad display
-      await incrementActionCount();
+      // // Increment action count for ad display
+      // await incrementActionCount();
     }
   };
 
@@ -428,8 +441,8 @@ export default function App() {
 
   const handleTabChange = async (tab) => {
     setActiveTab(tab);
-    // Increment action count for tab changes
-    await incrementActionCount();
+    // // Increment action count for tab changes
+    // await incrementActionCount();
   };
 
   const todayTasks = getTodayTasks();
@@ -478,62 +491,62 @@ export default function App() {
       </View>
 
       {/* Task List */}
-      <ScrollView style={styles.taskList} showsVerticalScrollIndicator={false}>
-        {getTasksByTab().map((task) => (
-          <View key={task.id} style={[styles.taskItem, task.completedDate && styles.completedTaskItem]}>
-            <View style={styles.taskContent}>
-              <View style={styles.taskHeader}>
-                <Text style={[styles.taskText, task.completedDate && styles.completedTask]}>
-                  {task.text}
-                </Text>
-                <View style={styles.taskBadges}>
-                  <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(task.priority || 'medium') }]}>
-                    <Text style={styles.priorityBadgeText}>
-                      {getPriorityLabel(task.priority || 'medium')}
-                    </Text>
+        <ScrollView style={styles.taskList} showsVerticalScrollIndicator={false}>
+          {getTasksByTab().map((task) => (
+            <View key={task.id} style={[styles.taskItem, task.completedDate && styles.completedTaskItem]}>
+              <View style={styles.taskContent}>
+                <View style={styles.taskHeader}>
+                  <Text style={[styles.taskText, task.completedDate && styles.completedTask]}>
+                    {task.text}
+                  </Text>
+                  <View style={styles.taskBadges}>
+                    <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(task.priority || 'medium') }]}>
+                      <Text style={styles.priorityBadgeText}>
+                        {getPriorityLabel(task.priority || 'medium')}
+                      </Text>
+                    </View>
                   </View>
                 </View>
+                <Text style={[styles.taskDate, task.completedDate && styles.completedTaskDate]}>
+                  Prazo: {formatDateDisplay(task.date)} {activeTab === 'completed' && task.completedDate ? `(Conclusão: ${formatDateDisplay(task.completedDate)})` : ''}
+                </Text>
               </View>
-              <Text style={[styles.taskDate, task.completedDate && styles.completedTaskDate]}>
-                Prazo: {formatDateDisplay(task.date)} {activeTab === 'completed' && task.completedDate ? `(Conclusão: ${formatDateDisplay(task.completedDate)})` : ''}
-              </Text>
+              {activeTab === 'current' ?(<View style={styles.taskActions}>
+                <TouchableOpacity
+                  style={[styles.actionButton, task.completed && styles.disabledActionButton]}
+                  onPress={() => editTask(task.id)}
+                  disabled={!!task.completedDate}
+                >
+                  <Ionicons 
+                    name="pencil" 
+                    size={20} 
+                    color={task.completedDate ? "#ccc" : "#8B5CF6"} 
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => deleteTask(task.id)}
+                  disabled={!!task.completedDate}
+                >
+                  <Ionicons 
+                    name="trash" 
+                    size={20} 
+                    color={task.completedDate ? "#ccc" : "#8B5CF6"}  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={() => toggleTask(task.id)}
+                >
+                  <Ionicons
+                    name={task.completedDate ? "checkmark-circle" : "ellipse-outline"}
+                    size={20}
+                    color={task.completedDate ? "#10B981" : "#8B5CF6"}
+                  />
+                </TouchableOpacity>
+              </View>) : null}
             </View>
-            {activeTab === 'current' ?(<View style={styles.taskActions}>
-              <TouchableOpacity
-                style={[styles.actionButton, task.completed && styles.disabledActionButton]}
-                onPress={() => editTask(task.id)}
-                disabled={!!task.completedDate}
-              >
-                <Ionicons 
-                  name="pencil" 
-                  size={20} 
-                  color={task.completedDate ? "#ccc" : "#8B5CF6"} 
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => deleteTask(task.id)}
-                disabled={!!task.completedDate}
-              >
-                <Ionicons 
-                  name="trash" 
-                  size={20} 
-                  color={task.completedDate ? "#ccc" : "#8B5CF6"}  />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleTask(task.id)}
-              >
-                <Ionicons
-                  name={task.completedDate ? "checkmark-circle" : "ellipse-outline"}
-                  size={20}
-                  color={task.completedDate ? "#10B981" : "#8B5CF6"}
-                />
-              </TouchableOpacity>
-            </View>) : null}
-          </View>
-        ))}
-      </ScrollView>
+          ))}
+        </ScrollView>
 
       {/* Add Task Modal */}
       {showAddTask && (
