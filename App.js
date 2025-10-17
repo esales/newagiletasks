@@ -16,7 +16,6 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { get, set } from 'lodash';
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
@@ -73,79 +72,6 @@ export default function App() {
   useEffect(() => {
     getTasks();
   }, []);
-
-  // useEffect(() => {
-  // const init = async () => {
-  //   initUser().then(() => {
-  //     console.log('Usuário inicializado:', user.id);
-  //     getTasks();
-  //   });
-  // };
-
-//   init();
-// }, []);
-
-  // const loadAdData = async () => {
-  //   try {
-  //     const storedActionCount = await AsyncStorage.getItem('actionCount');
-  //     const storedDailyAdCount = await AsyncStorage.getItem('dailyAdCount');
-  //     const storedLastAdDate = await AsyncStorage.getItem('lastAdDate');
-      
-  //     if (storedActionCount) setActionCount(parseInt(storedActionCount));
-  //     if (storedDailyAdCount) setDailyAdCount(parseInt(storedDailyAdCount));
-  //     if (storedLastAdDate) setLastAdDate(storedLastAdDate);
-  //   } catch (error) {
-  //     console.error('Error loading ad data:', error);
-  //   }
-  // };
-
-  // const saveAdData = async (newActionCount, newDailyAdCount, newLastAdDate) => {
-  //   try {
-  //     await AsyncStorage.setItem('actionCount', newActionCount.toString());
-  //     await AsyncStorage.setItem('dailyAdCount', newDailyAdCount.toString());
-  //     await AsyncStorage.setItem('lastAdDate', newLastAdDate);
-  //   } catch (error) {
-  //     console.error('Error saving ad data:', error);
-  //   }
-  // };
-
-  // const incrementActionCount = async () => {
-  //   const today = new Date().toLocaleDateString('pt-BR');
-  //   let newActionCount = actionCount + 1;
-  //   let newDailyAdCount = dailyAdCount;
-  //   let newLastAdDate = lastAdDate;
-
-  //   // Reset daily ad count if it's a new day
-  //   if (lastAdDate !== today) {
-  //     newDailyAdCount = 0;
-  //     newLastAdDate = today;
-  //   }
-
-  //   // Check if we should show an ad (every 20 actions and max 3 per day)
-  //   if (newActionCount % 20 === 0 && newDailyAdCount < 3) {
-  //     showInterstitialAd();
-  //     newDailyAdCount += 1;
-  //   }
-
-  //   setActionCount(newActionCount);
-  //   setDailyAdCount(newDailyAdCount);
-  //   setLastAdDate(newLastAdDate);
-  //   await saveAdData(newActionCount, newDailyAdCount, newLastAdDate);
-  // };
-
-  // const showInterstitialAd = () => {
-  //   // Simple ad simulation - in a real app, this would show an actual ad
-  //   Alert.alert(
-  //     '📱 Anúncio',
-  //     'Este é um espaço para anúncio intersticial.\n\nEm uma versão de produção, aqui seria exibido um anúncio real do AdMob.',
-  //     [
-  //       {
-  //         text: 'Fechar',
-  //         style: 'default',
-  //       },
-  //     ]
-  //   );
-  // };
 
   const saveTask = async (task) => {
 
@@ -245,7 +171,7 @@ export default function App() {
     const newTask = {
       id: Date.now().toString(),
       text: newTaskText.trim(),
-      date: formatDate(newTaskDate),
+      date: normalizeSupabaseDate(newTaskDate) || new Date().toISOString().split('T')[0],
       priority: newTaskPriority,
       completed: false,
       completedDate: null,
@@ -263,35 +189,94 @@ export default function App() {
 
       await getTasks();
 
-      // // Increment action count for ad display
-      // await incrementActionCount();
     }
   };
+
+  // const toggleTask = async (taskId) => {
+
+  //   const task = tasks.find(t => t.id === taskId);
+
+  //   if (!task){
+  //     Alert.alert('Erro', 'Erro ao editar tarefa.');
+  //   }
+
+  //   let completedDate = null;
+
+  //   if (!task.completedDate)
+  //     completedDate = new Date().toISOString().split('T')[0];
+
+  //   const { error } = await supabase.from('tasks').update({completedDate: completedDate}).eq('id', taskId);
+    
+  //   if (error) Alert.alert('Erro', error.message)
+  //     else {
+  //       getTasks();
+      
+  //     }
+  // };
 
   const toggleTask = async (taskId) => {
-
     const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
 
-    if (!task){
-      Alert.alert('Erro', 'Erro ao editar tarefa.');
-    }
+    // Se a tarefa já está concluída, pedir confirmação para desmarcar
+    if (task.completedDate) {
+      Alert.alert(
+        'Confirmação',
+        'Deseja realmente desmarcar a conclusão desta tarefa?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Sim',
+            onPress: async () => {
+              let newCompletedDate = null;
 
-    let completedDate = null;
+              // Atualiza a UI imediatamente
+              setTasks(prevTasks =>
+                prevTasks.map(t =>
+                  t.id === taskId ? { ...t, completedDate: newCompletedDate } : t
+                )
+              );
 
-    if (!task.completedDate)
-      completedDate = new Date().toISOString().split('T')[0];
+              try {
+                const { error } = await supabase
+                  .from('tasks')
+                  .update({ completedDate: newCompletedDate })
+                  .eq('id', taskId);
 
-    const { error } = await supabase.from('tasks').update({completedDate: completedDate}).eq('id', taskId);
-    
-    if (error) Alert.alert('Erro', error.message)
-      else {
-        getTasks();
+                if (error) throw error;
+              } catch (err) {
+                Alert.alert('Erro', err.message);
+                getTasks(); // reverter UI se houver erro
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // Se não está concluída, apenas completa sem alerta
+      const newCompletedDate = new Date().toISOString().split('T')[0];
+
+      setTasks(prevTasks =>
+        prevTasks.map(t =>
+          t.id === taskId ? { ...t, completedDate: newCompletedDate } : t
+        )
+      );
       
-        // // Increment action count for ad display
-        // await incrementActionCount();
-      }
+      try {
+        const { error } = await supabase.from('tasks')
+          .update({ completedDate: newCompletedDate })
+          .eq('id', taskId);
+
+          if (error) throw error;
+        } catch (err) {
+          Alert.alert('Erro', err.message);
+          getTasks(); // reverter UI se houver erro
+        }
+    }
   };
 
+
+  
   const deleteTask = (taskId) => {
     Alert.alert(
       'Confirmar Exclusão',
@@ -308,8 +293,6 @@ export default function App() {
             else {
               getTasks();
             
-              // // Increment action count for ad display
-              // await incrementActionCount();
             }
           },
         },
@@ -358,8 +341,6 @@ export default function App() {
       setEditTaskDate('');
       setEditTaskPriority('medium');
 
-      // // Increment action count for ad display
-      // await incrementActionCount();
     }
   };
 
@@ -399,7 +380,7 @@ export default function App() {
     if (dateStr.includes('-')){
       [year, month, day] = dateStr.split('-')
     } else if (dateStr.includes('/')){
-      [year, month, day]  = dateStr.split('/')
+      [day, month, year]  = dateStr.split('/')
     } else return null;
 
     return `${year}-${month}-${day}`; // "YYYY-MM-DD"
@@ -441,8 +422,6 @@ export default function App() {
 
   const handleTabChange = async (tab) => {
     setActiveTab(tab);
-    // // Increment action count for tab changes
-    // await incrementActionCount();
   };
 
   const todayTasks = getTodayTasks();
@@ -536,6 +515,7 @@ export default function App() {
                 <TouchableOpacity
                   style={styles.actionButton}
                   onPress={() => toggleTask(task.id)}
+                  activeOpacity={0.6}
                 >
                   <Ionicons
                     name={task.completedDate ? "checkmark-circle" : "ellipse-outline"}
@@ -814,7 +794,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F6F5FB', // very light lavender
   },
   header: {
     flexDirection: 'row',
@@ -822,24 +802,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#ECE9F8',
   },
   headerLeft: {
     flexDirection: 'row',
-    // alignItems: 'center',
   },
   logoImage: {
     width: 32,
     height: 32,
     marginRight: 12,
-  },  
+  },
   logoSquare: {
     width: 24,
     height: 24,
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#8B5CF6',
-    borderRadius: 4,
+    borderColor: '#C9B8FF',
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 2,
@@ -850,82 +829,85 @@ const styles = StyleSheet.create({
     left: 4,
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#8B5CF6',
-    borderRadius: 4,
+    borderColor: '#C9B8FF',
+    borderRadius: 6,
     zIndex: 1,
   },
   title: {
     flex: 1,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#8B5CF6',
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#6C4AB6', // muted purple
     textAlign: 'center',
   },
   summaryContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 12,
     alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   summaryText: {
-    fontSize: 16,
-    color: '#000',
+    fontSize: 15,
+    color: '#5B4A78',
   },
   summaryNumbers: {
     color: '#8B5CF6',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   tabContainer: {
     flexDirection: 'row',
-    marginHorizontal: 20,
-    marginBottom: 16,
-    backgroundColor: '#F3F0FF',
-    borderRadius: 12,
+    marginHorizontal: 18,
+    marginBottom: 14,
+    backgroundColor: '#F0ECFB', // pastel lilac
+    borderRadius: 14,
     padding: 4,
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
     alignItems: 'center',
   },
   activeTab: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#BFA7FF', // soft purple highlight
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#8B5CF6',
+    color: '#7A62A8',
   },
   activeTabText: {
-    color: '#fff',
+    color: '#3E2A73',
   },
   taskList: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
   },
   taskItem: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#000',
+    shadowColor: '#8A7EBF',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 6,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F1EBFB',
   },
   completedTaskItem: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#FBF9FE',
     borderLeftWidth: 4,
-    borderLeftColor: '#10B981',
-    opacity: 0.8,
+    borderLeftColor: '#9AE6B4', // soft green accent for completed
+    opacity: 0.95,
   },
   taskContent: {
     flex: 1,
@@ -935,7 +917,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   taskBadges: {
     flexDirection: 'row',
@@ -950,20 +932,20 @@ const styles = StyleSheet.create({
   },
   priorityBadgeText: {
     color: '#fff',
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   taskText: {
     fontSize: 16,
-    color: '#000',
+    color: '#403657',
     flex: 1,
   },
   completedTask: {
     textDecorationLine: 'line-through',
-    color: '#6B7280',
+    color: '#9A8FB8',
   },
   completedBadge: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#9AE6B4',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
@@ -972,28 +954,28 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   completedBadgeText: {
-    color: '#fff',
+    color: '#1F2937',
     fontSize: 10,
     fontWeight: '600',
     marginLeft: 4,
   },
   taskDate: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 13,
+    color: '#6B5E7A',
   },
   completedTaskDate: {
-    color: '#9CA3AF',
+    color: '#A89EB6',
   },
   disabledActionButton: {
     opacity: 0.5,
   },
   priorityContainer: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   priorityLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: '#5B4A78',
     marginBottom: 8,
   },
   priorityOptions: {
@@ -1006,27 +988,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 2,
-    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    backgroundColor: '#FFF',
+    borderColor: '#EFEAF8',
   },
   selectedPriorityOption: {
-    backgroundColor: '#F3F0FF',
+    backgroundColor: '#F2EDFF',
   },
   priorityDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginRight: 6,
+    marginRight: 8,
   },
   priorityOptionText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#374151',
+    color: '#5B4A78',
   },
   selectedPriorityOptionText: {
-    color: '#8B5CF6',
-    fontWeight: '600',
+    color: '#6C4AB6',
+    fontWeight: '700',
   },
   taskActions: {
     flexDirection: 'row',
@@ -1034,26 +1017,26 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     padding: 8,
-    marginLeft: 4,
+    marginLeft: 6,
   },
   fab: {
     position: 'absolute',
-    bottom: 30,
-    right: 30,
+    bottom: 28,
+    right: 28,
     width: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: '#8B5CF6',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#7A63C9',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 6,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 10,
   },
   modalOverlay: {
     position: 'absolute',
@@ -1061,34 +1044,38 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(66, 41, 100, 0.18)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: '#FBF9FF',
+    borderRadius: 14,
     padding: 20,
     width: '90%',
-    maxWidth: 400,
+    maxWidth: 420,
+    borderWidth: 1,
+    borderColor: '#EEE8FB',
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
+    fontWeight: '700',
+    marginBottom: 18,
     textAlign: 'center',
-    color: '#8B5CF6',
+    color: '#6C4AB6',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderColor: '#ECE6F8',
+    borderRadius: 10,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 14,
     fontSize: 16,
+    backgroundColor: '#FFFFFF',
+    color: '#3F3350',
   },
   dateInputContainer: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   dateInputRow: {
     flexDirection: 'row',
@@ -1101,15 +1088,16 @@ const styles = StyleSheet.create({
   },
   calendarButton: {
     padding: 12,
-    backgroundColor: '#F3F0FF',
-    borderRadius: 8,
+    backgroundColor: '#F4F0FF',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#8B5CF6',
+    borderColor: '#D9CBFF',
   },
   dateHint: {
     fontSize: 12,
-    color: '#666',
+    color: '#7A6A8F',
     fontStyle: 'italic',
+    marginTop: 6,
   },
   calendarOverlay: {
     position: 'absolute',
@@ -1117,58 +1105,426 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(66, 41, 100, 0.18)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
   },
   calendarContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 18,
     width: '90%',
-    maxWidth: 400,
-    maxHeight: '80%',
+    maxWidth: 420,
+    maxHeight: '82%',
+    borderWidth: 1,
+    borderColor: '#F0EAFB',
   },
   calendarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   calendarTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#8B5CF6',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#6C4AB6',
   },
   calendarCloseButton: {
-    padding: 4,
+    padding: 6,
   },
   modalActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginTop: 6,
   },
   button: {
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     flex: 1,
-    marginHorizontal: 4,
+    marginHorizontal: 6,
   },
   cancelButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#F6F4FB',
+    borderWidth: 1,
+    borderColor: '#E9E1FB',
   },
   addButton: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#7D5CE6',
   },
   cancelButtonText: {
-    color: '#666',
+    color: '#6D5F83',
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   addButtonText: {
-    color: '#fff',
+    color: '#FFFFFF',
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
+
+
+// const styles = StyleSheet.create({
+//   container: {
+//     flex: 1,
+//     backgroundColor: '#fff',
+//   },
+//   header: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     paddingHorizontal: 20,
+//     paddingVertical: 15,
+//     borderBottomWidth: 1,
+//     borderBottomColor: '#f0f0f0',
+//   },
+//   headerLeft: {
+//     flexDirection: 'row',
+//     // alignItems: 'center',
+//   },
+//   logoImage: {
+//     width: 32,
+//     height: 32,
+//     marginRight: 12,
+//   },  
+//   logoSquare: {
+//     width: 24,
+//     height: 24,
+//     backgroundColor: 'transparent',
+//     borderWidth: 2,
+//     borderColor: '#8B5CF6',
+//     borderRadius: 4,
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//     marginRight: 2,
+//   },
+//   logoSquareOverlay: {
+//     position: 'absolute',
+//     top: 4,
+//     left: 4,
+//     backgroundColor: 'transparent',
+//     borderWidth: 2,
+//     borderColor: '#8B5CF6',
+//     borderRadius: 4,
+//     zIndex: 1,
+//   },
+//   title: {
+//     flex: 1,
+//     fontSize: 24,
+//     fontWeight: 'bold',
+//     color: '#8B5CF6',
+//     textAlign: 'center',
+//   },
+//   summaryContainer: {
+//     paddingHorizontal: 20,
+//     paddingVertical: 15,
+//     alignItems: 'center',
+//   },
+//   summaryText: {
+//     fontSize: 16,
+//     color: '#000',
+//   },
+//   summaryNumbers: {
+//     color: '#8B5CF6',
+//     fontWeight: '600',
+//   },
+//   tabContainer: {
+//     flexDirection: 'row',
+//     marginHorizontal: 20,
+//     marginBottom: 16,
+//     backgroundColor: '#F3F0FF',
+//     borderRadius: 12,
+//     padding: 4,
+//   },
+//   tab: {
+//     flex: 1,
+//     paddingVertical: 12,
+//     paddingHorizontal: 16,
+//     borderRadius: 8,
+//     alignItems: 'center',
+//   },
+//   activeTab: {
+//     backgroundColor: '#8B5CF6',
+//   },
+//   tabText: {
+//     fontSize: 14,
+//     fontWeight: '600',
+//     color: '#8B5CF6',
+//   },
+//   activeTabText: {
+//     color: '#fff',
+//   },
+//   taskList: {
+//     flex: 1,
+//     paddingHorizontal: 20,
+//   },
+//   taskItem: {
+//     backgroundColor: '#fff',
+//     borderRadius: 12,
+//     padding: 16,
+//     marginBottom: 12,
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     justifyContent: 'space-between',
+//     shadowColor: '#000',
+//     shadowOffset: {
+//       width: 0,
+//       height: 2,
+//     },
+//     shadowOpacity: 0.1,
+//     shadowRadius: 3.84,
+//     elevation: 5,
+//   },
+//   completedTaskItem: {
+//     backgroundColor: '#F8F9FA',
+//     borderLeftWidth: 4,
+//     borderLeftColor: '#10B981',
+//     opacity: 0.8,
+//   },
+//   taskContent: {
+//     flex: 1,
+//     marginRight: 12,
+//   },
+//   taskHeader: {
+//     flexDirection: 'row',
+//     alignItems: 'flex-start',
+//     justifyContent: 'space-between',
+//     marginBottom: 4,
+//   },
+//   taskBadges: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     flexWrap: 'wrap',
+//     gap: 8,
+//   },
+//   priorityBadge: {
+//     paddingHorizontal: 8,
+//     paddingVertical: 4,
+//     borderRadius: 12,
+//   },
+//   priorityBadgeText: {
+//     color: '#fff',
+//     fontSize: 10,
+//     fontWeight: '600',
+//   },
+//   taskText: {
+//     fontSize: 16,
+//     color: '#000',
+//     flex: 1,
+//   },
+//   completedTask: {
+//     textDecorationLine: 'line-through',
+//     color: '#6B7280',
+//   },
+//   completedBadge: {
+//     backgroundColor: '#10B981',
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     paddingHorizontal: 8,
+//     paddingVertical: 4,
+//     borderRadius: 12,
+//     marginLeft: 8,
+//   },
+//   completedBadgeText: {
+//     color: '#fff',
+//     fontSize: 10,
+//     fontWeight: '600',
+//     marginLeft: 4,
+//   },
+//   taskDate: {
+//     fontSize: 14,
+//     color: '#666',
+//   },
+//   completedTaskDate: {
+//     color: '#9CA3AF',
+//   },
+//   disabledActionButton: {
+//     opacity: 0.5,
+//   },
+//   priorityContainer: {
+//     marginBottom: 16,
+//   },
+//   priorityLabel: {
+//     fontSize: 14,
+//     fontWeight: '600',
+//     color: '#374151',
+//     marginBottom: 8,
+//   },
+//   priorityOptions: {
+//     flexDirection: 'row',
+//     gap: 8,
+//   },
+//   priorityOption: {
+//     flex: 1,
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     paddingVertical: 8,
+//     paddingHorizontal: 12,
+//     borderRadius: 8,
+//     borderWidth: 2,
+//     backgroundColor: '#fff',
+//   },
+//   selectedPriorityOption: {
+//     backgroundColor: '#F3F0FF',
+//   },
+//   priorityDot: {
+//     width: 8,
+//     height: 8,
+//     borderRadius: 4,
+//     marginRight: 6,
+//   },
+//   priorityOptionText: {
+//     fontSize: 12,
+//     fontWeight: '500',
+//     color: '#374151',
+//   },
+//   selectedPriorityOptionText: {
+//     color: '#8B5CF6',
+//     fontWeight: '600',
+//   },
+//   taskActions: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//   },
+//   actionButton: {
+//     padding: 8,
+//     marginLeft: 4,
+//   },
+//   fab: {
+//     position: 'absolute',
+//     bottom: 30,
+//     right: 30,
+//     width: 56,
+//     height: 56,
+//     borderRadius: 28,
+//     backgroundColor: '#8B5CF6',
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//     shadowColor: '#000',
+//     shadowOffset: {
+//       width: 0,
+//       height: 4,
+//     },
+//     shadowOpacity: 0.3,
+//     shadowRadius: 4.65,
+//     elevation: 8,
+//   },
+//   modalOverlay: {
+//     position: 'absolute',
+//     top: 0,
+//     left: 0,
+//     right: 0,
+//     bottom: 0,
+//     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//   },
+//   modalContent: {
+//     backgroundColor: '#fff',
+//     borderRadius: 12,
+//     padding: 20,
+//     width: '90%',
+//     maxWidth: 400,
+//   },
+//   modalTitle: {
+//     fontSize: 20,
+//     fontWeight: 'bold',
+//     marginBottom: 20,
+//     textAlign: 'center',
+//     color: '#8B5CF6',
+//   },
+//   input: {
+//     borderWidth: 1,
+//     borderColor: '#ddd',
+//     borderRadius: 8,
+//     padding: 12,
+//     marginBottom: 16,
+//     fontSize: 16,
+//   },
+//   dateInputContainer: {
+//     marginBottom: 16,
+//   },
+//   dateInputRow: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//   },
+//   dateInput: {
+//     flex: 1,
+//     marginRight: 8,
+//     marginBottom: 4,
+//   },
+//   calendarButton: {
+//     padding: 12,
+//     backgroundColor: '#F3F0FF',
+//     borderRadius: 8,
+//     borderWidth: 1,
+//     borderColor: '#8B5CF6',
+//   },
+//   dateHint: {
+//     fontSize: 12,
+//     color: '#666',
+//     fontStyle: 'italic',
+//   },
+//   calendarOverlay: {
+//     position: 'absolute',
+//     top: 0,
+//     left: 0,
+//     right: 0,
+//     bottom: 0,
+//     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+//     justifyContent: 'center',
+//     alignItems: 'center',
+//     zIndex: 1000,
+//   },
+//   calendarContainer: {
+//     backgroundColor: '#fff',
+//     borderRadius: 12,
+//     padding: 20,
+//     width: '90%',
+//     maxWidth: 400,
+//     maxHeight: '80%',
+//   },
+//   calendarHeader: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-between',
+//     alignItems: 'center',
+//     marginBottom: 16,
+//   },
+//   calendarTitle: {
+//     fontSize: 18,
+//     fontWeight: 'bold',
+//     color: '#8B5CF6',
+//   },
+//   calendarCloseButton: {
+//     padding: 4,
+//   },
+//   modalActions: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-between',
+//   },
+//   button: {
+//     paddingVertical: 12,
+//     paddingHorizontal: 24,
+//     borderRadius: 8,
+//     flex: 1,
+//     marginHorizontal: 4,
+//   },
+//   cancelButton: {
+//     backgroundColor: '#f0f0f0',
+//   },
+//   addButton: {
+//     backgroundColor: '#8B5CF6',
+//   },
+//   cancelButtonText: {
+//     color: '#666',
+//     textAlign: 'center',
+//     fontWeight: '600',
+//   },
+//   addButtonText: {
+//     color: '#fff',
+//     textAlign: 'center',
+//     fontWeight: '600',
+//   },
+// });
