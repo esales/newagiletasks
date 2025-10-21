@@ -17,6 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar } from 'react-native-calendars';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { useTranslation } from 'react-i18next';
+import './i18n';
+
 export default function App() {
   const [tasks, setTasks] = useState([]);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -31,9 +34,8 @@ export default function App() {
   const [editTaskPriority, setEditTaskPriority] = useState('medium');
   const [showEditCalendar, setShowEditCalendar] = useState(false);
   const [activeTab, setActiveTab] = useState('current');
-  const [actionCount, setActionCount] = useState(0);
-  const [dailyAdCount, setDailyAdCount] = useState(0);
-  const [lastAdDate, setLastAdDate] = useState('');
+
+  const { t, i18n } = useTranslation();
 
 
   useEffect(() => {
@@ -157,12 +159,12 @@ export default function App() {
 
   const addTask = async () => {
     if (newTaskText.trim() === '') {
-      Alert.alert('Erro', 'Por favor, digite uma descrição para a tarefa');
+      Alert.alert(t('erroTitulo'), t('digiteDescricao'));
       return;
     }
 
     if (!validateDate(newTaskDate)) {
-      Alert.alert('Erro', 'Por favor, digite uma data válida no formato DD/MM/AAAA ou deixe em branco para usar a data de hoje');
+      Alert.alert(t('erroTitulo'), t('digiteDataValida'));
       return;
     }
 
@@ -180,7 +182,7 @@ export default function App() {
 
     const { error } =  await supabase.from('tasks').insert(newTask);
 
-    if (error) Alert.alert('Erro', error.message)
+    if (error) Alert.alert(t('erroTitulo'), error.message)
     else {
       setShowAddTask(false);
       setNewTaskText('');
@@ -192,28 +194,6 @@ export default function App() {
     }
   };
 
-  // const toggleTask = async (taskId) => {
-
-  //   const task = tasks.find(t => t.id === taskId);
-
-  //   if (!task){
-  //     Alert.alert('Erro', 'Erro ao editar tarefa.');
-  //   }
-
-  //   let completedDate = null;
-
-  //   if (!task.completedDate)
-  //     completedDate = new Date().toISOString().split('T')[0];
-
-  //   const { error } = await supabase.from('tasks').update({completedDate: completedDate}).eq('id', taskId);
-    
-  //   if (error) Alert.alert('Erro', error.message)
-  //     else {
-  //       getTasks();
-      
-  //     }
-  // };
-
   const toggleTask = async (taskId) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -221,12 +201,12 @@ export default function App() {
     // Se a tarefa já está concluída, pedir confirmação para desmarcar
     if (task.completedDate) {
       Alert.alert(
-        'Confirmação',
-        'Deseja realmente desmarcar a conclusão desta tarefa?',
+        t('confirmacaoTitulo'),
+        t('confirmarDesmarcarConclusao'),
         [
-          { text: 'Cancelar', style: 'cancel' },
+          { text: t('botaoCancelar'), style: 'cancel' },
           {
-            text: 'Sim',
+            text: t('botaoConfirmar'),
             onPress: async () => {
               let newCompletedDate = null;
 
@@ -245,7 +225,7 @@ export default function App() {
 
                 if (error) throw error;
               } catch (err) {
-                Alert.alert('Erro', err.message);
+                Alert.alert(t('erroTitulo'), err.message);
                 getTasks(); // reverter UI se houver erro
               }
             },
@@ -269,7 +249,7 @@ export default function App() {
 
           if (error) throw error;
         } catch (err) {
-          Alert.alert('Erro', err.message);
+          Alert.alert(t('erroTitulo'), err.message);
           getTasks(); // reverter UI se houver erro
         }
     }
@@ -279,17 +259,17 @@ export default function App() {
   
   const deleteTask = (taskId) => {
     Alert.alert(
-      'Confirmar Exclusão',
-      'Tem certeza que deseja excluir esta tarefa?',
+      t('confirmacaoTitulo'),
+      t('confirmarExcluirTarefa'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('botaoCancelar'), style: 'cancel' },
         {
-          text: 'Excluir',
+          text: t('botaoConfirmar'),
           style: 'destructive',
           onPress: async () => {
             const { error } = await supabase.from('tasks').delete().eq('id', taskId);
 
-            if (error) Alert.alert('Erro', error.message)
+            if (error) Alert.alert(t('erroTitulo'), error.message)
             else {
               getTasks();
             
@@ -314,12 +294,12 @@ export default function App() {
   const saveEditTask = async () => {
     if (editTaskText.trim() === '') {
 
-      Alert.alert('Erro', 'Por favor, digite uma descrição para a tarefa');
+      Alert.alert(t('erroTitulo'), t('digiteDescricao'));
       return;
     }
 
     if (!validateDate(editTaskDate)) {
-      Alert.alert('Erro', 'Por favor, digite uma data válida no formato DD/MM/AAAA ou deixe em branco para usar a data de hoje');
+      Alert.alert(t('erroTitulo'), t('digiteDataValida'));
       return;
     }
 
@@ -332,7 +312,7 @@ export default function App() {
 
     const { error } = await supabase.from('tasks').update(updatedTask).eq('id', updatedTask.id);
 
-    if (error) Alert.alert('Erro', error.message)
+    if (error) Alert.alert(t('erroTitulo'), error.message)
     else {
       getTasks();
       setShowEditTask(false);
@@ -410,13 +390,13 @@ export default function App() {
   const getPriorityLabel = (priority) => {
     switch (priority) {
       case 'high':
-        return 'Alta';
+        return t('prioridadeAlta');
       case 'medium':
-        return 'Média';
+        return t('prioridadeMedia');
       case 'low':
-        return 'Baixa';
+        return t('prioridadeBaixa');
       default:
-        return 'Média';
+        return t('prioridadeMedia');
     }
   };
 
@@ -445,7 +425,7 @@ export default function App() {
       {/* Today's Summary */}
       <View style={styles.summaryContainer}>
         <Text style={styles.summaryText}>
-          Finalizadas hoje: <Text style={styles.summaryNumbers}>{completedToday.length} / {todayTasks.length}</Text>
+          {t('finalizadasHoje')}: <Text style={styles.summaryNumbers}>{completedToday.length} / {todayTasks.length}</Text>
         </Text>
       </View>
 
@@ -456,7 +436,7 @@ export default function App() {
           onPress={() => handleTabChange('current')}
         >
           <Text style={[styles.tabText, activeTab === 'current' && styles.activeTabText]}>
-            Tarefas Atuais
+            {t('tarefasAtuais')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -464,7 +444,7 @@ export default function App() {
           onPress={() => handleTabChange('completed')}
         >
           <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>
-            Concluídas
+            {t('concluidas')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -487,7 +467,7 @@ export default function App() {
                   </View>
                 </View>
                 <Text style={[styles.taskDate, task.completedDate && styles.completedTaskDate]}>
-                  Prazo: {formatDateDisplay(task.date)} {activeTab === 'completed' && task.completedDate ? `(Conclusão: ${formatDateDisplay(task.completedDate)})` : ''}
+                  {t('prazo')}: {formatDateDisplay(task.date)} {activeTab === 'completed' && task.completedDate ? `(${t('conclusao')}: ${formatDateDisplay(task.completedDate)})` : ''}
                 </Text>
               </View>
               {activeTab === 'current' ?(<View style={styles.taskActions}>
@@ -532,10 +512,10 @@ export default function App() {
       {showAddTask && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Nova Tarefa</Text>
+            <Text style={styles.modalTitle}>{t('novaTarefa')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Descrição da tarefa"
+              placeholder={t('descricaoTarefa')}
               value={newTaskText}
               onChangeText={setNewTaskText}
               multiline
@@ -544,7 +524,7 @@ export default function App() {
               <View style={styles.dateInputRow}>
                 <TextInput
                   style={[styles.input, styles.dateInput]}
-                  placeholder="DD/MM/AAAA (opcional)"
+                  placeholder={t('dataOpcional')}
                   value={newTaskDate}
                   onChangeText={setNewTaskDate}
                   keyboardType="numeric"
@@ -558,13 +538,13 @@ export default function App() {
                 </TouchableOpacity>
               </View>
               <Text style={styles.dateHint}>
-                Deixe em branco para usar a data de hoje
+                {t('dataHoje')}
               </Text>
             </View>
             
             {/* Priority Selection */}
             <View style={styles.priorityContainer}>
-              <Text style={styles.priorityLabel}>Prioridade:</Text>
+              <Text style={styles.priorityLabel}>{t('prioridade')}:</Text>
               <View style={styles.priorityOptions}>
                 {['low', 'medium', 'high'].map((priority) => (
                   <TouchableOpacity
@@ -596,13 +576,13 @@ export default function App() {
                 style={[styles.button, styles.cancelButton]}
                 onPress={() => setShowAddTask(false)}
               >
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <Text style={styles.cancelButtonText}>{t('botaoCancelar')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.addButton]}
                 onPress={addTask}
               >
-                <Text style={styles.addButtonText}>Adicionar</Text>
+                <Text style={styles.addButtonText}>{t('botaoAdicionar')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -613,10 +593,10 @@ export default function App() {
       {showEditTask && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Editar Tarefa</Text>
+            <Text style={styles.modalTitle}>{t('editarTarefa')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Descrição da tarefa"
+              placeholder={t('descricaoTarefa')}
               value={editTaskText}
               onChangeText={setEditTaskText}
               multiline
@@ -625,7 +605,7 @@ export default function App() {
               <View style={styles.dateInputRow}>
                 <TextInput
                   style={[styles.input, styles.dateInput]}
-                  placeholder="DD/MM/AAAA (opcional)"
+                  placeholder={t('dataOpcional')}
                   value={editTaskDate}
                   onChangeText={setEditTaskDate}
                   keyboardType="numeric"
@@ -639,13 +619,13 @@ export default function App() {
                 </TouchableOpacity>
               </View>
               <Text style={styles.dateHint}>
-                Deixe em branco para usar a data de hoje
+                {t('dataHoje')}
               </Text>
             </View>
             
             {/* Priority Selection */}
             <View style={styles.priorityContainer}>
-              <Text style={styles.priorityLabel}>Prioridade:</Text>
+              <Text style={styles.priorityLabel}>{t('prioridade')}:</Text>
               <View style={styles.priorityOptions}>
                 {['low', 'medium', 'high'].map((priority) => (
                   <TouchableOpacity
@@ -677,13 +657,13 @@ export default function App() {
                 style={[styles.button, styles.cancelButton]}
                 onPress={cancelEditTask}
               >
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <Text style={styles.cancelButtonText}>{t('botaoCancelar')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.addButton]}
                 onPress={saveEditTask}
               >
-                <Text style={styles.addButtonText}>Salvar</Text>
+                <Text style={styles.addButtonText}>{t('botaoSalvar')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -695,7 +675,7 @@ export default function App() {
         <View style={styles.calendarOverlay}>
           <View style={styles.calendarContainer}>
             <View style={styles.calendarHeader}>
-              <Text style={styles.calendarTitle}>Selecionar Data</Text>
+              <Text style={styles.calendarTitle}>{t('selecionarData')}</Text>
               <TouchableOpacity
                 style={styles.calendarCloseButton}
                 onPress={() => setShowCalendar(false)}
@@ -1165,366 +1145,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: '#fff',
-//   },
-//   header: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     paddingHorizontal: 20,
-//     paddingVertical: 15,
-//     borderBottomWidth: 1,
-//     borderBottomColor: '#f0f0f0',
-//   },
-//   headerLeft: {
-//     flexDirection: 'row',
-//     // alignItems: 'center',
-//   },
-//   logoImage: {
-//     width: 32,
-//     height: 32,
-//     marginRight: 12,
-//   },  
-//   logoSquare: {
-//     width: 24,
-//     height: 24,
-//     backgroundColor: 'transparent',
-//     borderWidth: 2,
-//     borderColor: '#8B5CF6',
-//     borderRadius: 4,
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     marginRight: 2,
-//   },
-//   logoSquareOverlay: {
-//     position: 'absolute',
-//     top: 4,
-//     left: 4,
-//     backgroundColor: 'transparent',
-//     borderWidth: 2,
-//     borderColor: '#8B5CF6',
-//     borderRadius: 4,
-//     zIndex: 1,
-//   },
-//   title: {
-//     flex: 1,
-//     fontSize: 24,
-//     fontWeight: 'bold',
-//     color: '#8B5CF6',
-//     textAlign: 'center',
-//   },
-//   summaryContainer: {
-//     paddingHorizontal: 20,
-//     paddingVertical: 15,
-//     alignItems: 'center',
-//   },
-//   summaryText: {
-//     fontSize: 16,
-//     color: '#000',
-//   },
-//   summaryNumbers: {
-//     color: '#8B5CF6',
-//     fontWeight: '600',
-//   },
-//   tabContainer: {
-//     flexDirection: 'row',
-//     marginHorizontal: 20,
-//     marginBottom: 16,
-//     backgroundColor: '#F3F0FF',
-//     borderRadius: 12,
-//     padding: 4,
-//   },
-//   tab: {
-//     flex: 1,
-//     paddingVertical: 12,
-//     paddingHorizontal: 16,
-//     borderRadius: 8,
-//     alignItems: 'center',
-//   },
-//   activeTab: {
-//     backgroundColor: '#8B5CF6',
-//   },
-//   tabText: {
-//     fontSize: 14,
-//     fontWeight: '600',
-//     color: '#8B5CF6',
-//   },
-//   activeTabText: {
-//     color: '#fff',
-//   },
-//   taskList: {
-//     flex: 1,
-//     paddingHorizontal: 20,
-//   },
-//   taskItem: {
-//     backgroundColor: '#fff',
-//     borderRadius: 12,
-//     padding: 16,
-//     marginBottom: 12,
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     justifyContent: 'space-between',
-//     shadowColor: '#000',
-//     shadowOffset: {
-//       width: 0,
-//       height: 2,
-//     },
-//     shadowOpacity: 0.1,
-//     shadowRadius: 3.84,
-//     elevation: 5,
-//   },
-//   completedTaskItem: {
-//     backgroundColor: '#F8F9FA',
-//     borderLeftWidth: 4,
-//     borderLeftColor: '#10B981',
-//     opacity: 0.8,
-//   },
-//   taskContent: {
-//     flex: 1,
-//     marginRight: 12,
-//   },
-//   taskHeader: {
-//     flexDirection: 'row',
-//     alignItems: 'flex-start',
-//     justifyContent: 'space-between',
-//     marginBottom: 4,
-//   },
-//   taskBadges: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     flexWrap: 'wrap',
-//     gap: 8,
-//   },
-//   priorityBadge: {
-//     paddingHorizontal: 8,
-//     paddingVertical: 4,
-//     borderRadius: 12,
-//   },
-//   priorityBadgeText: {
-//     color: '#fff',
-//     fontSize: 10,
-//     fontWeight: '600',
-//   },
-//   taskText: {
-//     fontSize: 16,
-//     color: '#000',
-//     flex: 1,
-//   },
-//   completedTask: {
-//     textDecorationLine: 'line-through',
-//     color: '#6B7280',
-//   },
-//   completedBadge: {
-//     backgroundColor: '#10B981',
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     paddingHorizontal: 8,
-//     paddingVertical: 4,
-//     borderRadius: 12,
-//     marginLeft: 8,
-//   },
-//   completedBadgeText: {
-//     color: '#fff',
-//     fontSize: 10,
-//     fontWeight: '600',
-//     marginLeft: 4,
-//   },
-//   taskDate: {
-//     fontSize: 14,
-//     color: '#666',
-//   },
-//   completedTaskDate: {
-//     color: '#9CA3AF',
-//   },
-//   disabledActionButton: {
-//     opacity: 0.5,
-//   },
-//   priorityContainer: {
-//     marginBottom: 16,
-//   },
-//   priorityLabel: {
-//     fontSize: 14,
-//     fontWeight: '600',
-//     color: '#374151',
-//     marginBottom: 8,
-//   },
-//   priorityOptions: {
-//     flexDirection: 'row',
-//     gap: 8,
-//   },
-//   priorityOption: {
-//     flex: 1,
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//     paddingVertical: 8,
-//     paddingHorizontal: 12,
-//     borderRadius: 8,
-//     borderWidth: 2,
-//     backgroundColor: '#fff',
-//   },
-//   selectedPriorityOption: {
-//     backgroundColor: '#F3F0FF',
-//   },
-//   priorityDot: {
-//     width: 8,
-//     height: 8,
-//     borderRadius: 4,
-//     marginRight: 6,
-//   },
-//   priorityOptionText: {
-//     fontSize: 12,
-//     fontWeight: '500',
-//     color: '#374151',
-//   },
-//   selectedPriorityOptionText: {
-//     color: '#8B5CF6',
-//     fontWeight: '600',
-//   },
-//   taskActions: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//   },
-//   actionButton: {
-//     padding: 8,
-//     marginLeft: 4,
-//   },
-//   fab: {
-//     position: 'absolute',
-//     bottom: 30,
-//     right: 30,
-//     width: 56,
-//     height: 56,
-//     borderRadius: 28,
-//     backgroundColor: '#8B5CF6',
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     shadowColor: '#000',
-//     shadowOffset: {
-//       width: 0,
-//       height: 4,
-//     },
-//     shadowOpacity: 0.3,
-//     shadowRadius: 4.65,
-//     elevation: 8,
-//   },
-//   modalOverlay: {
-//     position: 'absolute',
-//     top: 0,
-//     left: 0,
-//     right: 0,
-//     bottom: 0,
-//     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//   },
-//   modalContent: {
-//     backgroundColor: '#fff',
-//     borderRadius: 12,
-//     padding: 20,
-//     width: '90%',
-//     maxWidth: 400,
-//   },
-//   modalTitle: {
-//     fontSize: 20,
-//     fontWeight: 'bold',
-//     marginBottom: 20,
-//     textAlign: 'center',
-//     color: '#8B5CF6',
-//   },
-//   input: {
-//     borderWidth: 1,
-//     borderColor: '#ddd',
-//     borderRadius: 8,
-//     padding: 12,
-//     marginBottom: 16,
-//     fontSize: 16,
-//   },
-//   dateInputContainer: {
-//     marginBottom: 16,
-//   },
-//   dateInputRow: {
-//     flexDirection: 'row',
-//     alignItems: 'center',
-//   },
-//   dateInput: {
-//     flex: 1,
-//     marginRight: 8,
-//     marginBottom: 4,
-//   },
-//   calendarButton: {
-//     padding: 12,
-//     backgroundColor: '#F3F0FF',
-//     borderRadius: 8,
-//     borderWidth: 1,
-//     borderColor: '#8B5CF6',
-//   },
-//   dateHint: {
-//     fontSize: 12,
-//     color: '#666',
-//     fontStyle: 'italic',
-//   },
-//   calendarOverlay: {
-//     position: 'absolute',
-//     top: 0,
-//     left: 0,
-//     right: 0,
-//     bottom: 0,
-//     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-//     justifyContent: 'center',
-//     alignItems: 'center',
-//     zIndex: 1000,
-//   },
-//   calendarContainer: {
-//     backgroundColor: '#fff',
-//     borderRadius: 12,
-//     padding: 20,
-//     width: '90%',
-//     maxWidth: 400,
-//     maxHeight: '80%',
-//   },
-//   calendarHeader: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//     alignItems: 'center',
-//     marginBottom: 16,
-//   },
-//   calendarTitle: {
-//     fontSize: 18,
-//     fontWeight: 'bold',
-//     color: '#8B5CF6',
-//   },
-//   calendarCloseButton: {
-//     padding: 4,
-//   },
-//   modalActions: {
-//     flexDirection: 'row',
-//     justifyContent: 'space-between',
-//   },
-//   button: {
-//     paddingVertical: 12,
-//     paddingHorizontal: 24,
-//     borderRadius: 8,
-//     flex: 1,
-//     marginHorizontal: 4,
-//   },
-//   cancelButton: {
-//     backgroundColor: '#f0f0f0',
-//   },
-//   addButton: {
-//     backgroundColor: '#8B5CF6',
-//   },
-//   cancelButtonText: {
-//     color: '#666',
-//     textAlign: 'center',
-//     fontWeight: '600',
-//   },
-//   addButtonText: {
-//     color: '#fff',
-//     textAlign: 'center',
-//     fontWeight: '600',
-//   },
-// });

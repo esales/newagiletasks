@@ -32,11 +32,15 @@
     },
     "sdkVersion": "54.0.0",
     "extra": {
-      "EXPO_PUBLIC_SUPABASE_URL": "https://qsyvvkjjlpomttwnjuij.supabase.co",
-      "EXPO_PUBLIC_SUPABASE_KEY": "sb_publishable_xAjYdR4Pl19Cy6R-43dIkA_yXV0ElHN",
+      "supabaseUrl": "https://qsyvvkjjlpomttwnjuij.supabase.co",
+      "supabaseKey": "sb_publishable_xAjYdR4Pl19Cy6R-43dIkA_yXV0ElHN",
       "eas": {
         "projectId": "1da39ab0-51f5-43f3-bd87-4949b0629f74"
       }
-    }
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font"
+    ]
   }
 }
