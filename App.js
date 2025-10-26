@@ -19,6 +19,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTranslation } from 'react-i18next';
 import './i18n';
+import * as Localization from 'expo-localization';
+
 
 export default function App() {
   const [tasks, setTasks] = useState([]);
@@ -34,8 +36,10 @@ export default function App() {
   const [editTaskPriority, setEditTaskPriority] = useState('medium');
   const [showEditCalendar, setShowEditCalendar] = useState(false);
   const [activeTab, setActiveTab] = useState('current');
+  const [locale, setLocale] = useState('en-US');
 
   const { t, i18n } = useTranslation();
+  
 
 
   useEffect(() => {
@@ -50,6 +54,19 @@ export default function App() {
     }
     initUser()
     
+  }, []);
+
+  const localizacao = async () => {
+    const locales = Localization.getLocales();
+    const locale = locales?.[0]?.languageTag || 'pt-BR';
+
+    console.log('Locale detectado:', locale);
+    i18n.changeLanguage(locale);
+    setLocale(locale);
+  };
+
+  useEffect(() => {
+    localizacao();
   }, []);
 
 
@@ -117,16 +134,39 @@ export default function App() {
     return `${month}/${day}/${year}`;
   };
 
-  const handleDateSelect = (day) => {
-    const selectedDate = new Date(day.dateString);
-    const formattedDate = formatDateDisplay(selectedDate)
-    setNewTaskDate(formattedDate);
-    setShowCalendar(false);
-  };
+const handleDateSelect = (day) => {
+  const selectedDate = new Date(day.dateString + 'T12:00:00Z');
+
+  const locales = Localization.getLocales();
+  const locale = locales?.[0]?.languageTag || 'pt-BR';
+
+  console.log('Locale detectado:', locale);
+
+
+  const formattedDate = selectedDate.toLocaleDateString(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  setNewTaskDate(formattedDate);
+  setShowCalendar(false);
+};
+
 
   const handleEditDateSelect = (day) => {
-    const selectedDate = new Date(day.dateString);
-    const formattedDate = formatDateDisplay(selectedDate)
+    const selectedDate = new Date(day.dateString+ 'T12:00:00Z');
+
+    const locales = Localization.getLocales();
+    const locale = locales?.[0]?.languageTag || 'pt-BR';
+
+    console.log('Locale detectado:', locale);
+
+    const formattedDate = selectedDate.toLocaleDateString(locale, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
 
     setEditTaskDate(formattedDate);
     
@@ -153,18 +193,19 @@ export default function App() {
       throw new Error('Input must be a Date or string in YYYY-MM-DD format');
     }
 
-    return `${day}/${month}/${year}`;
+    const data = new Date(year, month - 1, day).toLocaleDateString(locale, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+
+    return data;
   };
 
 
   const addTask = async () => {
     if (newTaskText.trim() === '') {
       Alert.alert(t('erroTitulo'), t('digiteDescricao'));
-      return;
-    }
-
-    if (!validateDate(newTaskDate)) {
-      Alert.alert(t('erroTitulo'), t('digiteDataValida'));
       return;
     }
 
@@ -255,8 +296,6 @@ export default function App() {
     }
   };
 
-
-  
   const deleteTask = (taskId) => {
     Alert.alert(
       t('confirmacaoTitulo'),
@@ -295,11 +334,6 @@ export default function App() {
     if (editTaskText.trim() === '') {
 
       Alert.alert(t('erroTitulo'), t('digiteDescricao'));
-      return;
-    }
-
-    if (!validateDate(editTaskDate)) {
-      Alert.alert(t('erroTitulo'), t('digiteDataValida'));
       return;
     }
 
@@ -524,11 +558,11 @@ export default function App() {
               <View style={styles.dateInputRow}>
                 <TextInput
                   style={[styles.input, styles.dateInput]}
-                  placeholder={t('dataOpcional')}
                   value={newTaskDate}
                   onChangeText={setNewTaskDate}
                   keyboardType="numeric"
                   maxLength={10}
+                  editable={false}
                 />
                 <TouchableOpacity
                   style={styles.calendarButton}
@@ -605,11 +639,11 @@ export default function App() {
               <View style={styles.dateInputRow}>
                 <TextInput
                   style={[styles.input, styles.dateInput]}
-                  placeholder={t('dataOpcional')}
                   value={editTaskDate}
                   onChangeText={setEditTaskDate}
                   keyboardType="numeric"
                   maxLength={10}
+                  editable={false}
                 />
                 <TouchableOpacity
                   style={styles.calendarButton}
